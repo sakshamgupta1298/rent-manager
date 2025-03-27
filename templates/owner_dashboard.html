@@ -1,0 +1,456 @@
+{% extends "base.html" %}
+
+{% block title %}Owner Dashboard - Rent Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Owner Dashboard</h2>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Set Electricity Rate</h5>
+                    <form action="{{ url_for('set_electricity_rate') }}" method="post">
+                        <div class="mb-3">
+                            <label for="rate_per_unit" class="form-label">Rate per Unit (₹)</label>
+                            <input type="number" step="0.01" class="form-control" id="rate_per_unit" name="rate_per_unit" required
+                                value="{{ current_rate.rate_per_unit if current_rate else '' }}">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update Rate</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Register New Tenant</h5>
+                    <form action="{{ url_for('register_tenant') }}" method="post">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Tenant Name</label>
+                            <input type="text" class="form-control" id="name" name="name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="rent_amount" class="form-label">Monthly Rent (₹)</label>
+                            <input type="number" step="0.01" class="form-control" id="rent_amount" name="rent_amount" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="initial_electricity_reading" class="form-label">Initial Electricity Meter Reading</label>
+                            <input type="number" step="0.01" class="form-control" id="initial_electricity_reading" name="initial_electricity_reading" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="initial_water_reading" class="form-label">Initial Water Meter Reading</label>
+                            <input type="number" step="0.01" class="form-control" id="initial_water_reading" name="initial_water_reading" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="password" class="form-label">Password</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                            <small class="text-muted">This will be used by the tenant to log in</small>
+                        </div>
+                        <button type="submit" class="btn btn-success">Register Tenant</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Recent Electricity Meter Readings</h5>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Tenant</th>
+                            <th>Reading Value</th>
+                            <th>Units Consumed</th>
+                            <th>Bill Amount</th>
+                            <th>Photo</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reading in readings %}
+                        {% if reading.meter_type == 'electricity' %}
+                        <tr>
+                            <td>{{ reading.reading_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ reading.user.name }} ({{ reading.user.tenant_id }})</td>
+                            <td>{{ reading.reading_value }}</td>
+                            <td>
+                                {% if reading.previous_reading %}
+                                    {{ reading.reading_value - reading.previous_reading.reading_value }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if reading.previous_reading and current_rate %}
+                                    ₹{{ "%.2f"|format((reading.reading_value - reading.previous_reading.reading_value) * current_rate.rate_per_unit) }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if reading.image_path %}
+                                <a href="{{ url_for('static', filename='uploads/' + reading.image_path) }}" 
+                                   target="_blank" class="btn btn-sm btn-outline-primary">View Photo</a>
+                                {% else %}
+                                No photo
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if reading.is_processed %}bg-success{% else %}bg-warning{% endif %}">
+                                    {{ "Processed" if reading.is_processed else "Pending" }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Recent Water Meter Readings</h5>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Tenant</th>
+                            <th>Reading Value</th>
+                            <th>Units Consumed</th>
+                            <th>Share per Tenant</th>
+                            <th>Photo</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reading in readings %}
+                        {% if reading.meter_type == 'water' %}
+                        <tr>
+                            <td>{{ reading.reading_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ reading.user.name }} ({{ reading.user.tenant_id }})</td>
+                            <td>{{ reading.reading_value }}</td>
+                            <td>
+                                {% if reading.previous_reading %}
+                                    {{ reading.reading_value - reading.previous_reading.reading_value }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if reading.previous_reading %}
+                                    {% set total_tenants = tenants|length %}
+                                    {% set consumption = reading.reading_value - reading.previous_reading.reading_value %}
+                                    {% set share = consumption / (total_tenants + 1) %}
+                                    ₹{{ "%.2f"|format(share) }}
+                                {% else %}
+                                    N/A
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if reading.image_path %}
+                                <a href="{{ url_for('static', filename='uploads/' + reading.image_path) }}" 
+                                   target="_blank" class="btn btn-sm btn-outline-primary">View Photo</a>
+                                {% else %}
+                                No photo
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge {% if reading.is_processed %}bg-success{% else %}bg-warning{% endif %}">
+                                    {{ "Processed" if reading.is_processed else "Pending" }}
+                                </span>
+                            </td>
+                        </tr>
+                        {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Pending Payments</h5>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Tenant</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Reference</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in pending_payments %}
+                        <tr>
+                            <td>{{ payment.payment_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ payment.user.name }} ({{ payment.user.tenant_id }})</td>
+                            <td>₹{{ "%.2f"|format(payment.amount) }}</td>
+                            <td>{{ payment.payment_method|title }}</td>
+                            <td>
+                                {% if payment.payment_method == 'card' %}
+                                    {{ payment.stripe_payment_id }}
+                                {% else %}
+                                    {{ payment.transaction_reference }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if payment.payment_method in ['cash', 'bank_transfer'] %}
+                                <form action="{{ url_for('confirm_payment', payment_id=payment.id) }}" 
+                                      method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-success btn-sm">Confirm</button>
+                                </form>
+                                <form action="{{ url_for('reject_payment', payment_id=payment.id) }}" 
+                                      method="POST" style="display: inline;">
+                                    <button type="submit" class="btn btn-danger btn-sm">Reject</button>
+                                </form>
+                                {% else %}
+                                <span class="badge bg-info">Automatic</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tenants Overview with Water Bill -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Tenants Overview</h5>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Tenant ID</th>
+                            <th>Name</th>
+                            <th>Monthly Rent</th>
+                            <th>Electricity Reading</th>
+                            <th>Electricity Bill</th>
+                            <th>Water Reading</th>
+                            <th>Water Bill</th>
+                            <th>Total Amount</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tenant in tenants %}
+                        <tr>
+                            <td>{{ tenant.tenant_id }}</td>
+                            <td>{{ tenant.name }}</td>
+                            <td>₹{{ "%.2f"|format(tenant.rent_amount) }}</td>
+                            
+                            <!-- Electricity Reading and Bill -->
+                            <td>
+                                {% if tenant_readings[tenant.id]['electricity']['current'] %}
+                                    {{ tenant_readings[tenant.id]['electricity']['current'].reading_value }}
+                                {% else %}
+                                    No readings
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if tenant_readings[tenant.id]['electricity']['current'] and tenant_readings[tenant.id]['electricity']['previous'] and current_rate %}
+                                    {% set consumption = tenant_readings[tenant.id]['electricity']['current'].reading_value - tenant_readings[tenant.id]['electricity']['previous'].reading_value %}
+                                    {% set electricity_bill = consumption * current_rate.rate_per_unit %}
+                                    ₹{{ "%.2f"|format(electricity_bill) }}
+                                {% else %}
+                                    ₹0.00
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Water Reading and Bill -->
+                            <td>
+                                {% if tenant_readings[tenant.id]['water']['current'] %}
+                                    {{ tenant_readings[tenant.id]['water']['current'].reading_value }}
+                                {% else %}
+                                    No readings
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if water_bill %}
+                                    ₹{{ "%.2f"|format(water_bill.amount_per_tenant) }}
+                                {% else %}
+                                    ₹0.00
+                                {% endif %}
+                            </td>
+                            
+                            <!-- Total Amount -->
+                            <td class="fw-bold">
+                                {% set total_amount = tenant.rent_amount %}
+                                {% if tenant_readings[tenant.id]['electricity']['current'] and tenant_readings[tenant.id]['electricity']['previous'] and current_rate %}
+                                    {% set consumption = tenant_readings[tenant.id]['electricity']['current'].reading_value - tenant_readings[tenant.id]['electricity']['previous'].reading_value %}
+                                    {% set electricity_bill = consumption * current_rate.rate_per_unit %}
+                                    {% set total_amount = total_amount + electricity_bill %}
+                                {% endif %}
+                                {% if water_bill %}
+                                    {% set total_amount = total_amount + water_bill.amount_per_tenant %}
+                                {% endif %}
+                                ₹{{ "%.2f"|format(total_amount) }}
+                            </td>
+                            <td>
+                                <button class="btn btn-danger btn-sm" 
+                                        onclick="confirmDelete('{{ tenant.name }}', {{ tenant.id }})">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Are you sure you want to delete tenant <span id="tenantName"></span>? 
+                This will also delete all their meter readings and payment history.
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteForm" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger">Delete Tenant</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function confirmDelete(tenantName, tenantId) {
+    document.getElementById('tenantName').textContent = tenantName;
+    document.getElementById('deleteForm').action = `/delete_tenant/${tenantId}`;
+    var deleteModal = new bootstrap.Modal(document.getElementById('deleteModal'));
+    deleteModal.show();
+}
+
+function confirmPayment(paymentId) {
+    if (confirm('Are you sure you want to confirm this payment?')) {
+        fetch(`/confirm_payment/${paymentId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Failed to confirm payment: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to confirm payment');
+        });
+    }
+}
+
+function rejectPayment(paymentId) {
+    if (confirm('Are you sure you want to reject this payment?')) {
+        fetch(`/reject_payment/${paymentId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Failed to reject payment: ' + data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to reject payment');
+        });
+    }
+}
+</script>
+
+<!-- Add proper spacing between cards -->
+<div class="mb-4"></div>
+
+<!-- Payment History Section - Updated with white header -->
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">Payment History</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table mb-0">
+                            <thead>
+                                <tr>
+                                    <th class="ps-3">Date</th>
+                                    <th>Tenant</th>
+                                    <th>Amount</th>
+                                    <th>Method</th>
+                                    <th>Status</th>
+                                    <th class="pe-3">Reference</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for payment in payments %}
+                                <tr>
+                                    <td class="ps-3">{{ payment.payment_date.strftime('%Y-%m-%d') }}</td>
+                                    <td>{{ payment.user.name }}</td>
+                                    <td>₹{{ "%.2f"|format(payment.amount) }}</td>
+                                    <td>
+                                        <span class="badge rounded-pill bg-info text-white">
+                                            {{ payment.payment_method }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="badge rounded-pill {% if payment.status == 'confirmed' %}bg-success{% elif payment.status == 'pending' %}bg-warning{% else %}bg-danger{% endif %} text-white">
+                                            {{ payment.status }}
+                                        </span>
+                                    </td>
+                                    <td class="pe-3">
+                                        <small class="text-muted">
+                                            {{ payment.transaction_reference or payment.stripe_payment_id or 'N/A' }}
+                                        </small>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                                {% if not payments %}
+                                <tr>
+                                    <td colspan="6" class="text-center py-3">No payment history found</td>
+                                </tr>
+                                {% endif %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+
+{% block title %}Welcome - Rent Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8 text-center">
+            <h1 class="display-4 mb-4">Welcome to Rent Manager</h1>
+            <p class="lead mb-5">A simple and efficient way to manage property rentals, meter readings, and payments.</p>
+        </div>
+    </div>
+
+    <div class="row justify-content-center">
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="card-title mb-4">Property Owner</h3>
+                    <p class="card-text">Manage your properties, tenants, and track payments efficiently.</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('register') }}" class="btn btn-primary">Register as Owner</a>
+                        <small class="text-muted mt-2">Already registered? <a href="{{ url_for('login') }}">Login here</a></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-body text-center">
+                    <h3 class="card-title mb-4">Tenant</h3>
+                    <p class="card-text">Upload meter readings and manage your payments easily.</p>
+                    <div class="d-grid gap-2">
+                        <a href="{{ url_for('login') }}" class="btn btn-outline-primary">Tenant Login</a>
+                        <small class="text-muted mt-2">Contact your property owner for login credentials</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <div class="col-md-4">
+        <div class="card shadow h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-home fa-3x mb-3 text-primary"></i>
+                <h3>Property Management</h3>
+                <p>Efficiently manage your properties and tenants in one place.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-bolt fa-3x mb-3 text-primary"></i>
+                <h3>Utility Tracking</h3>
+                <p>Easy upload and tracking of electricity meter readings.</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow h-100">
+            <div class="card-body text-center">
+                <i class="fas fa-credit-card fa-3x mb-3 text-primary"></i>
+                <h3>Secure Payments</h3>
+                <p>Process rent and utility payments securely through our platform.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

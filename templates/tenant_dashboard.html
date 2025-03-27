@@ -1,0 +1,459 @@
+{% extends "base.html" %}
+
+{% block title %}Tenant Dashboard - Rent Manager{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Welcome, {{ current_user.name }}</h2>
+    <p>Your Tenant ID: {{ current_user.tenant_id }}</p>
+    
+    <!-- Payment Summary Card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Current Bill Summary</h5>
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <p class="mb-1">Monthly Rent:</p>
+                    <h4>₹{{ "%.2f"|format(current_user.rent_amount) }}</h4>
+                </div>
+                <div class="col-md-3">
+                    <p class="mb-1">Electricity Bill:</p>
+                    {% if latest_electricity_reading and latest_electricity_reading.previous and current_rate %}
+                        {% set electricity_bill = (latest_electricity_reading.reading_value - latest_electricity_reading.previous.reading_value) * current_rate.rate_per_unit %}
+                        <h4>₹{{ "%.2f"|format(electricity_bill) }}</h4>
+                    {% else %}
+                        <h4>₹0.00</h4>
+                    {% endif %}
+                </div>
+                <div class="col-md-3">
+                    <p class="mb-1">Water Bill:</p>
+                    {% if water_bill %}
+                        <h4>₹{{ "%.2f"|format(water_bill.amount_per_tenant) }}</h4>
+                    {% else %}
+                        <h4>₹0.00</h4>
+                    {% endif %}
+                </div>
+                <div class="col-md-3">
+                    <p class="mb-1">Total Amount Due:</p>
+                    {% set total = current_user.rent_amount %}
+                    {% if latest_electricity_reading and latest_electricity_reading.previous and current_rate %}
+                        {% set total = total + electricity_bill %}
+                    {% endif %}
+                    {% if water_bill %}
+                        {% set total = total + water_bill.amount_per_tenant %}
+                    {% endif %}
+                    <h4 class="text-primary">₹{{ "%.2f"|format(total) }}</h4>
+                </div>
+            </div>
+
+            <!-- Payment Status and Options -->
+            {% if existing_payment %}
+                <div class="alert 
+                    {% if existing_payment.status == 'pending' %}alert-warning
+                    {% elif existing_payment.status == 'completed' or existing_payment.status == 'confirmed' %}alert-success
+                    {% else %}alert-danger{% endif %}">
+                    <h5 class="alert-heading">
+                        {% if existing_payment.status == 'pending' %}
+                            Payment Pending
+                        {% elif existing_payment.status == 'completed' or existing_payment.status == 'confirmed' %}
+                            Payment Completed
+                        {% else %}
+                            Payment Rejected
+                        {% endif %}
+                    </h5>
+                    <p>
+                        Payment of ₹{{ "%.2f"|format(existing_payment.amount) }} 
+                        via {{ existing_payment.payment_method|title }}
+                        {% if existing_payment.status == 'pending' %}
+                            is awaiting confirmation.
+                        {% elif existing_payment.status == 'completed' or existing_payment.status == 'confirmed' %}
+                            was received on {{ existing_payment.payment_date.strftime('%Y-%m-%d') }}.
+                        {% else %}
+                            was rejected. Please try another payment method.
+                        {% endif %}
+                    </p>
+                    {% if existing_payment.transaction_reference %}
+                        <small>Reference: {{ existing_payment.transaction_reference }}</small>
+                    {% endif %}
+                </div>
+            {% endif %}
+
+            {% if show_payment_options or (existing_payment and existing_payment.status == 'failed') %}
+                <!-- Payment Options -->
+                <div class="mt-3">
+                    <h5>Make a Payment</h5>
+                    {% if existing_payment and existing_payment.status == 'failed' %}
+                        <div class="alert alert-info mb-3">
+                            Your previous payment was rejected. Please try again with a different payment method.
+                        </div>
+                    {% endif %}
+                    <div class="row">
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Card Payment</h5>
+                                    <p class="card-text">Pay securely using your credit or debit card</p>
+                                    <button class="btn btn-primary" onclick="initiatePayment('card')">
+                                        Pay with Card
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Bank Transfer</h5>
+                                    <p class="card-text">Pay via bank transfer with a reference number</p>
+                                    <button class="btn btn-outline-primary" onclick="initiatePayment('bank_transfer')">
+                                        Bank Transfer
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card">
+                                <div class="card-body text-center">
+                                    <h5 class="card-title">Cash Payment</h5>
+                                    <p class="card-text">Get a reference number for cash payment</p>
+                                    <button class="btn btn-outline-primary" onclick="initiatePayment('cash')">
+                                        Pay Cash
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+
+            <!-- Add Water Meter Reading Form -->
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Upload Electricity Meter Reading</h5>
+                            <form action="{{ url_for('upload_reading') }}" method="post" enctype="multipart/form-data">
+                                <input type="hidden" name="meter_type" value="electricity">
+                                <div class="mb-3">
+                                    <label for="meter_reading" class="form-label">Current Reading</label>
+                                    <input type="number" step="0.01" class="form-control" id="meter_reading" name="meter_reading" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="meter_image" class="form-label">Meter Photo</label>
+                                    <input type="file" class="form-control" id="meter_image" name="meter_image" accept="image/*" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Upload Reading</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Upload Water Meter Reading</h5>
+                            <form action="{{ url_for('upload_reading') }}" method="post" enctype="multipart/form-data">
+                                <input type="hidden" name="meter_type" value="water">
+                                <div class="mb-3">
+                                    <label for="water_reading" class="form-label">Current Reading</label>
+                                    <input type="number" step="0.01" class="form-control" id="water_reading" name="meter_reading" required>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="water_image" class="form-label">Meter Photo</label>
+                                    <input type="file" class="form-control" id="water_image" name="meter_image" accept="image/*" required>
+                                </div>
+                                <button type="submit" class="btn btn-primary">Upload Reading</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Latest Reading</h5>
+                    {% if latest_electricity_reading %}
+                        <p>Reading: {{ latest_electricity_reading.reading_value }}</p>
+                        <p>Date: {{ latest_electricity_reading.reading_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                        {% if latest_electricity_reading.previous %}
+                            <p>Units Consumed: {{ latest_electricity_reading.consumption }}</p>
+                            {% if current_rate %}
+                                <p>Bill Amount: ₹{{ "%.2f"|format(latest_electricity_reading.consumption * current_rate.rate_per_unit) }}</p>
+                            {% endif %}
+                        {% else %}
+                            <p>Initial Reading</p>
+                        {% endif %}
+                        {% if latest_electricity_reading.image_path %}
+                            <a href="{{ url_for('static', filename='uploads/' + latest_electricity_reading.image_path) }}" 
+                               target="_blank" class="btn btn-sm btn-outline-primary">View Photo</a>
+                        {% endif %}
+                    {% else %}
+                        <p>No readings available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Latest Water Reading</h5>
+                    {% if latest_water_reading %}
+                        <p>Reading: {{ latest_water_reading.reading_value }}</p>
+                        <p>Date: {{ latest_water_reading.reading_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                        {% if latest_water_reading.previous %}
+                            <p>Units Consumed: {{ latest_water_reading.consumption }}</p>
+                        {% else %}
+                            <p>Initial Reading</p>
+                        {% endif %}
+                        {% if water_bill %}
+                            <p>Total Share Per Tenant: ₹{{ "%.2f"|format(water_bill.amount_per_tenant) }}</p>
+                        {% endif %}
+                        {% if latest_water_reading.image_path %}
+                            <a href="{{ url_for('static', filename='uploads/' + latest_water_reading.image_path) }}" 
+                               target="_blank" class="btn btn-sm btn-outline-primary">View Photo</a>
+                        {% endif %}
+                    {% else %}
+                        <p>No water readings available</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Electricity Reading History -->
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Electricity Reading History</h5>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Reading</th>
+                            <th>Status</th>
+                            <th>Image</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reading in meter_readings if reading.meter_type == 'electricity' %}
+                        <tr>
+                            <td>{{ reading.reading_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ reading.reading_value if reading.is_processed else 'Pending' }}</td>
+                            <td>
+                                <span class="badge {% if reading.is_processed %}bg-success{% else %}bg-warning{% endif %}">
+                                    {{ 'Processed' if reading.is_processed else 'Pending' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if reading.image_path %}
+                                <a href="{{ url_for('static', filename='uploads/' + reading.image_path) }}" target="_blank">
+                                    View Image
+                                </a>
+                                {% else %}
+                                No Image
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center">No electricity readings found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Water Reading History -->
+    <div class="card mt-4">
+        <div class="card-body">
+            <h5 class="card-title">Water Reading History</h5>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Reading</th>
+                            <th>Status</th>
+                            <th>Image</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for reading in meter_readings if reading.meter_type == 'water' %}
+                        <tr>
+                            <td>{{ reading.reading_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ reading.reading_value if reading.is_processed else 'Pending' }}</td>
+                            <td>
+                                <span class="badge {% if reading.is_processed %}bg-success{% else %}bg-warning{% endif %}">
+                                    {{ 'Processed' if reading.is_processed else 'Pending' }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if reading.image_path %}
+                                <a href="{{ url_for('static', filename='uploads/' + reading.image_path) }}" target="_blank">
+                                    View Image
+                                </a>
+                                {% else %}
+                                No Image
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr>
+                            <td colspan="4" class="text-center">No water readings found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Payment History</h5>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Amount</th>
+                            <th>Method</th>
+                            <th>Status</th>
+                            <th>Reference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for payment in payments %}
+                        <tr>
+                            <td>{{ payment.payment_date.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>₹{{ "%.2f"|format(payment.amount) }}</td>
+                            <td>{{ payment.payment_method|title }}</td>
+                            <td>
+                                <span class="badge {% if payment.status == 'completed' or payment.status == 'confirmed' %}bg-success
+                                                  {% elif payment.status == 'pending' %}bg-warning
+                                                  {% else %}bg-danger{% endif %}">
+                                    {{ payment.status|title }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if payment.payment_method == 'card' %}
+                                    {{ payment.stripe_payment_id }}
+                                {% else %}
+                                    {{ payment.transaction_reference }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Payment Reference Modal -->
+<div class="modal fade" id="paymentReferenceModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Payment Reference</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Please use the following reference for your payment:</p>
+                <div class="alert alert-info">
+                    <strong>Reference Number: </strong><span id="referenceNumber"></span>
+                </div>
+                <p><strong>Amount to Pay: </strong>₹<span id="amountToPay"></span></p>
+                <div id="paymentInstructions" class="mt-3"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeAndRefresh()">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+function closeAndRefresh() {
+    // Close the modal
+    const modal = bootstrap.Modal.getInstance(document.getElementById('paymentReferenceModal'));
+    modal.hide();
+    // Refresh the page
+    window.location.reload();
+}
+
+// Add event listener for when modal is hidden
+document.getElementById('paymentReferenceModal').addEventListener('hidden.bs.modal', function () {
+    window.location.reload();
+});
+
+function initiatePayment(method) {
+    fetch('/create_payment', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            payment_method: method
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+        
+        if (method === 'card') {
+            const stripe = Stripe('{{ stripe_public_key }}');
+            stripe.confirmPayment({
+                clientSecret: data.clientSecret,
+                confirmParams: {
+                    return_url: window.location.origin + '/payment_success'
+                }
+            });
+        } else {
+            // For cash and bank transfer
+            document.getElementById('referenceNumber').textContent = data.reference;
+            document.getElementById('amountToPay').textContent = data.amount.toFixed(2);
+            
+            let instructions = '';
+            if (method === 'bank_transfer') {
+                instructions = `
+                    <h6>Bank Transfer Instructions:</h6>
+                    <ol>
+                        <li>Use the reference number above in your transfer description</li>
+                        <li>Transfer the exact amount shown</li>
+                        <li>Payment will be confirmed once received</li>
+                    </ol>`;
+            } else {
+                instructions = `
+                    <h6>Cash Payment Instructions:</h6>
+                    <ol>
+                        <li>Show this reference number to the property owner</li>
+                        <li>Pay the exact amount shown</li>
+                        <li>Keep your receipt</li>
+                    </ol>`;
+            }
+            document.getElementById('paymentInstructions').innerHTML = instructions;
+            
+            const modal = new bootstrap.Modal(document.getElementById('paymentReferenceModal'));
+            modal.show();
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('Payment initiation failed');
+    });
+}
+</script>
+{% endblock %}
+{% endblock %} 

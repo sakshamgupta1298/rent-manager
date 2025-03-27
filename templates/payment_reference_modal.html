@@ -1,0 +1,13 @@
+<div class="modal-body">
+    <p>Please use the following reference for your payment:</p>
+    <div class="alert alert-info">
+        <strong>Reference Number: </strong><span id="referenceNumber"></span>
+    </div>
+    <p><strong>Amount to Pay: </strong>₹<span id="amountToPay"></span></p>
+</div> 
+
+<script>
+function formatCurrency(amount) {
+    return '₹' + amount.toFixed(2);
+}
+</script> 

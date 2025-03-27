@@ -1,0 +1,39 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Local development settings
+.env
+instance/
+.flaskenv
+
+# Virtual environment
+venv/
+env/
+ENV/
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+logs/
+*.log
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Static files for production (if collected separately)
+staticfiles/
+
+# Uploaded files/media
+static/uploads/ 
