@@ -36,6 +36,34 @@ class User(UserMixin, db.Model):
             if not User.query.filter_by(tenant_id=tenant_id).first():
                 return tenant_id
 
+    @staticmethod
+    def generate_tenant_password():
+        """Generate a secure random password for new tenants"""
+        import random
+        import string
+        
+        # Define character sets
+        lowercase = string.ascii_lowercase
+        uppercase = string.ascii_uppercase
+        digits = string.digits
+        special = "!@#$%^&*"
+        
+        # Generate password with at least one of each type
+        password = [
+            random.choice(lowercase),
+            random.choice(uppercase),
+            random.choice(digits),
+            random.choice(special)
+        ]
+        
+        # Add 4 more random characters from all sets
+        all_chars = lowercase + uppercase + digits + special
+        password.extend(random.choice(all_chars) for _ in range(4))
+        
+        # Shuffle the password
+        random.shuffle(password)
+        return ''.join(password)
+
 class MeterReading(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)

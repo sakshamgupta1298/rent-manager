@@ -294,10 +294,10 @@ def register_tenant():
         rent_amount = float(request.form.get('rent_amount'))
         initial_electricity_reading = float(request.form.get('initial_electricity_reading'))
         initial_water_reading = float(request.form.get('initial_water_reading'))
-        password = request.form.get('password')
         
-        # Generate unique tenant ID
+        # Generate unique tenant ID and password
         tenant_id = User.generate_unique_tenant_id()
+        password = User.generate_tenant_password()
         
         tenant = User(
             tenant_id=tenant_id,
@@ -335,7 +335,7 @@ def register_tenant():
         db.session.add(initial_water)
         db.session.commit()
         
-        flash(f'Tenant registered successfully! Tenant ID: {tenant_id}')
+        flash(f'Tenant registered successfully! Tenant ID: {tenant_id}, Password: {password}')
         return redirect(url_for('owner_dashboard'))
     
     return render_template('register_tenant.html')
@@ -570,8 +570,43 @@ def delete_tenant(tenant_id):
     flash(f'Tenant {tenant.name} has been deleted')
     return redirect(url_for('owner_dashboard'))
 
+@app.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+    if request.method == 'POST':
+        current_password = request.form.get('current_password')
+        new_password = request.form.get('new_password')
+        confirm_password = request.form.get('confirm_password')
+        
+        # Validate current password
+        if not current_user.check_password(current_password):
+            flash('Current password is incorrect')
+            return redirect(url_for('change_password'))
+        
+        # Validate new password
+        if new_password != confirm_password:
+            flash('New passwords do not match')
+            return redirect(url_for('change_password'))
+        
+        if len(new_password) < 8:
+            flash('New password must be at least 8 characters long')
+            return redirect(url_for('change_password'))
+        
+        # Update password
+        current_user.set_password(new_password)
+        db.session.commit()
+        
+        flash('Password updated successfully')
+        return redirect(url_for('tenant_dashboard'))
+    
+    return render_template('change_password.html')
+
 if __name__ == '__main__':
     with app.app_context():
         db.create_all()
-    # app.run(debug=True) 
+    # For local development
     app.run(debug=True, host='0.0.0.0', port=5000)
+    
+    # For production deployment, uncomment the following:
+    # from waitress import serve
+    # serve(app, host='0.0.0.0', port=int(os.getenv('PORT', 5000)))

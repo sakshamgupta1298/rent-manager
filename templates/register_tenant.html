@@ -9,6 +9,9 @@
             <div class="card">
                 <div class="card-body">
                     <h3 class="card-title text-center mb-4">Register New Tenant</h3>
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle"></i> A secure password will be automatically generated for the tenant.
+                    </div>
                     <form action="{{ url_for('register_tenant') }}" method="post">
                         <div class="mb-3">
                             <label for="name" class="form-label">Tenant Name</label>
@@ -30,12 +33,6 @@
                             <label for="initial_water_reading" class="form-label">Initial Water Meter Reading</label>
                             <input type="number" step="0.01" class="form-control" id="initial_water_reading" name="initial_water_reading" required>
                             <small class="text-muted">Current water meter reading at move-in</small>
-                        </div>
-
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
-                            <small class="text-muted">This will be used by the tenant to log in</small>
                         </div>
 
                         <div class="d-grid gap-2">

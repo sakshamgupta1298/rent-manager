@@ -4,7 +4,14 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Welcome, {{ current_user.name }}</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Welcome, {{ current_user.name }}</h2>
+        <div>
+            <a href="{{ url_for('change_password') }}" class="btn btn-outline-primary">
+                <i class="fas fa-key"></i> Change Password
+            </a>
+        </div>
+    </div>
     <p>Your Tenant ID: {{ current_user.tenant_id }}</p>
     
     <!-- Payment Summary Card -->
