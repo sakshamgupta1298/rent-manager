@@ -1,12 +1,12 @@
 {% extends "base.html" %}
 
-{% block title %}Welcome - Rent Manager{% endblock %}
+{% block title %}Welcome - DwellSync{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
     <div class="row justify-content-center">
         <div class="col-md-8 text-center">
-            <h1 class="display-4 mb-4">Welcome to Rent Manager</h1>
+            <h1 class="display-4 mb-4">Welcome to DwellSync</h1>
             <p class="lead mb-5">A simple and efficient way to manage property rentals, meter readings, and payments.</p>
         </div>
     </div>
@@ -31,7 +31,7 @@
                     <h3 class="card-title mb-4">Tenant</h3>
                     <p class="card-text">Upload meter readings and manage your payments easily.</p>
                     <div class="d-grid gap-2">
-                        <a href="{{ url_for('login') }}" class="btn btn-outline-primary">Tenant Login</a>
+                        <a href="{{ url_for('login') }}" class="btn btn-primary">Tenant Login</a>
                         <small class="text-muted mt-2">Contact your property owner for login credentials</small>
                     </div>
                 </div>

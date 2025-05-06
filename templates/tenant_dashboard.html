@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Tenant Dashboard - Rent Manager{% endblock %}
+{% block title %}Tenant Dashboard - DwellSync{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -34,8 +34,9 @@
                 </div>
                 <div class="col-md-3">
                     <p class="mb-1">Water Bill:</p>
-                    {% if water_bill %}
-                        <h4>₹{{ "%.2f"|format(water_bill.amount_per_tenant) }}</h4>
+                    {% if latest_water_reading and latest_water_reading.previous and current_rate %}
+                        {% set water_bill = ((latest_water_reading.reading_value - latest_water_reading.previous.reading_value)/(total_tenant + 1))*current_rate.rate_per_unit %}
+                        <h4>₹{{ "%.2f"|format(water_bill) }}</h4>
                     {% else %}
                         <h4>₹0.00</h4>
                     {% endif %}
@@ -47,7 +48,7 @@
                         {% set total = total + electricity_bill %}
                     {% endif %}
                     {% if water_bill %}
-                        {% set total = total + water_bill.amount_per_tenant %}
+                        {% set total = total + water_bill %}
                     {% endif %}
                     <h4 class="text-primary">₹{{ "%.2f"|format(total) }}</h4>
                 </div>
@@ -109,10 +110,10 @@
                         <div class="col-md-4">
                             <div class="card">
                                 <div class="card-body text-center">
-                                    <h5 class="card-title">Bank Transfer</h5>
-                                    <p class="card-text">Pay via bank transfer with a reference number</p>
-                                    <button class="btn btn-outline-primary" onclick="initiatePayment('bank_transfer')">
-                                        Bank Transfer
+                                    <h5 class="card-title">UPI Payment</h5>
+                                    <p class="card-text">Pay instantly using UPI apps </p>
+                                    <button class="btn btn-primary" onclick="initiatePayment('upi')">
+                                        Pay via UPI
                                     </button>
                                 </div>
                             </div>
@@ -122,7 +123,7 @@
                                 <div class="card-body text-center">
                                     <h5 class="card-title">Cash Payment</h5>
                                     <p class="card-text">Get a reference number for cash payment</p>
-                                    <button class="btn btn-outline-primary" onclick="initiatePayment('cash')">
+                                    <button class="btn btn-primary" onclick="initiatePayment('cash')">
                                         Pay Cash
                                     </button>
                                 </div>
@@ -132,45 +133,51 @@
                 </div>
             {% endif %}
 
-            <!-- Add Water Meter Reading Form -->
-            <div class="row mb-4">
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Upload Electricity Meter Reading</h5>
-                            <form action="{{ url_for('upload_reading') }}" method="post" enctype="multipart/form-data">
-                                <input type="hidden" name="meter_type" value="electricity">
-                                <div class="mb-3">
-                                    <label for="meter_reading" class="form-label">Current Reading</label>
-                                    <input type="number" step="0.01" class="form-control" id="meter_reading" name="meter_reading" required>
+            <!-- Meter Reading Upload Form -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h5 class="card-title">Upload Meter Readings</h5>
+                    <form action="{{ url_for('upload_reading') }}" method="post" enctype="multipart/form-data">
+                        <div class="row">
+                            <!-- Electricity Reading -->
+                            <div class="col-md-6">
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <h6 class="card-subtitle mb-3">Electricity Meter Reading</h6>
+                                        <div class="mb-3">
+                                            <label for="electricity_reading" class="form-label">Current Reading</label>
+                                            <input type="number" step="0.01" class="form-control" id="electricity_reading" name="electricity_reading" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="electricity_image" class="form-label">Meter Photo</label>
+                                            <input type="file" class="form-control" id="electricity_image" name="electricity_image" accept="image/*" required>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div class="mb-3">
-                                    <label for="meter_image" class="form-label">Meter Photo</label>
-                                    <input type="file" class="form-control" id="meter_image" name="meter_image" accept="image/*" required>
+                            </div>
+
+                            <!-- Water Reading -->
+                            <div class="col-md-6">
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <h6 class="card-subtitle mb-3">Water Meter Reading</h6>
+                                        <div class="mb-3">
+                                            <label for="water_reading" class="form-label">Current Reading</label>
+                                            <input type="number" step="0.01" class="form-control" id="water_reading" name="water_reading" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label for="water_image" class="form-label">Meter Photo</label>
+                                            <input type="file" class="form-control" id="water_image" name="water_image" accept="image/*" required>
+                                        </div>
+                                    </div>
                                 </div>
-                                <button type="submit" class="btn btn-primary">Upload Reading</button>
-                            </form>
+                            </div>
                         </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card">
-                        <div class="card-body">
-                            <h5 class="card-title">Upload Water Meter Reading</h5>
-                            <form action="{{ url_for('upload_reading') }}" method="post" enctype="multipart/form-data">
-                                <input type="hidden" name="meter_type" value="water">
-                                <div class="mb-3">
-                                    <label for="water_reading" class="form-label">Current Reading</label>
-                                    <input type="number" step="0.01" class="form-control" id="water_reading" name="meter_reading" required>
-                                </div>
-                                <div class="mb-3">
-                                    <label for="water_image" class="form-label">Meter Photo</label>
-                                    <input type="file" class="form-control" id="water_image" name="meter_image" accept="image/*" required>
-                                </div>
-                                <button type="submit" class="btn btn-primary">Upload Reading</button>
-                            </form>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">Upload Readings</button>
                         </div>
-                    </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -185,9 +192,9 @@
                         <p>Reading: {{ latest_electricity_reading.reading_value }}</p>
                         <p>Date: {{ latest_electricity_reading.reading_date.strftime('%Y-%m-%d %H:%M') }}</p>
                         {% if latest_electricity_reading.previous %}
-                            <p>Units Consumed: {{ latest_electricity_reading.consumption }}</p>
+                            <p>Units Consumed: {{ latest_electricity_reading.reading_value - latest_electricity_reading.previous.reading_value }}</p>
                             {% if current_rate %}
-                                <p>Bill Amount: ₹{{ "%.2f"|format(latest_electricity_reading.consumption * current_rate.rate_per_unit) }}</p>
+                                <p>Bill Amount: ₹{{ "%.2f"|format((latest_electricity_reading.reading_value - latest_electricity_reading.previous.reading_value) * current_rate.rate_per_unit) }}</p>
                             {% endif %}
                         {% else %}
                             <p>Initial Reading</p>
@@ -211,12 +218,12 @@
                         <p>Reading: {{ latest_water_reading.reading_value }}</p>
                         <p>Date: {{ latest_water_reading.reading_date.strftime('%Y-%m-%d %H:%M') }}</p>
                         {% if latest_water_reading.previous %}
-                            <p>Units Consumed: {{ latest_water_reading.consumption }}</p>
+                            <p>Units Consumed: {{ latest_water_reading.reading_value - latest_water_reading.previous.reading_value }}</p>
+                            {% if current_rate %}
+                                <p>Total Share Per Tenant: ₹{{ "%.2f"|format(((latest_water_reading.reading_value - latest_water_reading.previous.reading_value)/(total_tenant + 1))*current_rate.rate_per_unit) }}</p>
+                            {% endif %}
                         {% else %}
                             <p>Initial Reading</p>
-                        {% endif %}
-                        {% if water_bill %}
-                            <p>Total Share Per Tenant: ₹{{ "%.2f"|format(water_bill.amount_per_tenant) }}</p>
                         {% endif %}
                         {% if latest_water_reading.image_path %}
                             <a href="{{ url_for('static', filename='uploads/' + latest_water_reading.image_path) }}" 
@@ -433,15 +440,19 @@ function initiatePayment(method) {
             document.getElementById('amountToPay').textContent = data.amount.toFixed(2);
             
             let instructions = '';
-            if (method === 'bank_transfer') {
+            if (method === 'upi') {
                 instructions = `
-                    <h6>Bank Transfer Instructions:</h6>
+                    <h6>UPI Payment Instructions:</h6>
                     <ol>
-                        <li>Use the reference number above in your transfer description</li>
-                        <li>Transfer the exact amount shown</li>
+                        <li>Use the reference number above in your UPI payment description</li>
+                        <li>Pay the exact amount shown</li>
                         <li>Payment will be confirmed once received</li>
-                    </ol>`;
-            } else {
+                    </ol>
+                    <div class="alert alert-info mt-3">
+                        <strong>UPI ID:</strong> dwellsync@upi<br>
+                        <strong>QR Code:</strong> <img src="{{ url_for('static', filename='images/upi_qr.png') }}" alt="UPI QR Code" class="img-fluid mt-2">
+                    </div>`;
+            } else if (method === 'cash') {
                 instructions = `
                     <h6>Cash Payment Instructions:</h6>
                     <ol>

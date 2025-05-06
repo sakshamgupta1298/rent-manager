@@ -1,4 +1,4 @@
-# Rent Manager
+# DwellSync
 
 A web application for managing rental properties, tracking utility bills, and handling tenant payments.
 

@@ -173,11 +173,28 @@ def tenant_dashboard():
         meter_type='electricity'
     ).order_by(MeterReading.reading_date.desc()).first()
     
+    if latest_electricity_reading:
+        latest_electricity_reading.previous = MeterReading.query.filter(
+            MeterReading.user_id == current_user.id,
+            MeterReading.meter_type == 'electricity',
+            MeterReading.reading_date < latest_electricity_reading.reading_date
+        ).order_by(MeterReading.reading_date.desc()).first()
+    
     # Get latest water reading and bill
     latest_water_reading = MeterReading.query.filter_by(
         user_id=current_user.id,
         meter_type='water'
     ).order_by(MeterReading.reading_date.desc()).first()
+    
+    if latest_water_reading:
+        latest_water_reading.previous = MeterReading.query.filter(
+            MeterReading.user_id == current_user.id,
+            MeterReading.meter_type == 'water',
+            MeterReading.reading_date < latest_water_reading.reading_date
+        ).order_by(MeterReading.reading_date.desc()).first()
+    
+    # Get total number of tenants
+    total_tenant = User.query.filter_by(is_owner=False).count()
     
     water_bill = WaterBill.query.order_by(WaterBill.billing_date.desc()).first()
     
@@ -191,7 +208,8 @@ def tenant_dashboard():
                          show_payment_options=show_payment_options,
                          latest_electricity_reading=latest_electricity_reading,
                          latest_water_reading=latest_water_reading,
-                         water_bill=water_bill)
+                         water_bill=water_bill,
+                         total_tenant=total_tenant)
 
 @app.route('/owner_dashboard')
 @login_required
@@ -362,70 +380,75 @@ def set_electricity_rate():
 @login_required
 def upload_reading():
     if current_user.is_owner:
-        return jsonify({'error': 'Unauthorized'}), 403
+        return redirect(url_for('owner_dashboard'))
     
-    if 'meter_image' not in request.files:
-        flash('No file uploaded')
-        return redirect(url_for('tenant_dashboard'))
-    
-    file = request.files['meter_image']
-    meter_reading = request.form.get('meter_reading')
-    meter_type = request.form.get('meter_type')
-    
-    if not meter_reading:
-        flash('Please enter the meter reading value')
-        return redirect(url_for('tenant_dashboard'))
-    
-    try:
-        meter_reading = float(meter_reading)
-    except ValueError:
-        flash('Invalid meter reading value')
-        return redirect(url_for('tenant_dashboard'))
-    
-    if file:
-        filename = secure_filename(f"{current_user.tenant_id}_{meter_type}_{datetime.now().strftime('%Y%m%d%H%M%S')}.jpg")
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+    # Handle electricity reading
+    if 'electricity_reading' in request.form and 'electricity_image' in request.files:
+        electricity_reading = float(request.form.get('electricity_reading'))
+        electricity_image = request.files['electricity_image']
         
-        # Convert RGBA to RGB before saving as JPEG
-        image = Image.open(file)
-        if image.mode == 'RGBA':
-            image = image.convert('RGB')
-        image.thumbnail((800, 800))
-        image.save(filepath, 'JPEG', quality=85)
+        if electricity_image.filename:
+            filename = secure_filename(f"electricity_{current_user.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{electricity_image.filename}")
+            electricity_image.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        else:
+            filename = None
         
         reading = MeterReading(
             user_id=current_user.id,
-            reading_value=meter_reading,
+            reading_value=electricity_reading,
             reading_date=datetime.now(),
             image_path=filename,
-            meter_type=meter_type,
+            meter_type='electricity',
             is_processed=True
         )
+        db.session.add(reading)
+    
+    # Handle water reading
+    if 'water_reading' in request.form and 'water_image' in request.files:
+        water_reading = float(request.form.get('water_reading'))
+        water_image = request.files['water_image']
         
+        if water_image.filename:
+            filename = secure_filename(f"water_{current_user.id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}_{water_image.filename}")
+            water_image.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+        else:
+            filename = None
+        
+        reading = MeterReading(
+            user_id=current_user.id,
+            reading_value=water_reading,
+            reading_date=datetime.now(),
+            image_path=filename,
+            meter_type='water',
+            is_processed=True
+        )
         db.session.add(reading)
         
-        # Calculate water bill if this is a water reading
-        if meter_type == 'water':
-            total_tenants = User.query.filter_by(is_owner=False).count()
-            initial_reading = MeterReading.query.filter_by(
-                user_id=current_user.id,
-                meter_type='water'
-            ).order_by(MeterReading.reading_date).first()
-            
-            if initial_reading and initial_reading.reading_value < meter_reading:
-                total_usage = meter_reading - initial_reading.reading_value
-                amount_per_tenant = total_usage / (total_tenants + 1)
-                
-                water_bill = WaterBill(
-                    total_amount=total_usage,
-                    billing_date=datetime.now(),
-                    total_tenants=total_tenants,
-                    amount_per_tenant=amount_per_tenant
-                )
-                db.session.add(water_bill)
+        # Calculate water bill
+        total_tenants = User.query.filter_by(is_owner=False).count()
+        initial_water_reading = MeterReading.query.filter_by(
+            meter_type='water'
+        ).order_by(MeterReading.reading_date).first()
         
-        db.session.commit()
-        flash('Reading uploaded successfully')
+        if initial_water_reading and initial_water_reading.reading_value < water_reading:
+            total_usage = water_reading - initial_water_reading.reading_value
+            # Get current electricity rate
+            current_rate = ElectricityRate.query.order_by(ElectricityRate.effective_from.desc()).first()
+            if current_rate:
+                amount_per_tenant = (total_usage / (total_tenants + 1)) * current_rate.rate_per_unit
+            else:
+                amount_per_tenant = total_usage / (total_tenants + 1)
+            
+            water_bill = WaterBill(
+                total_amount=total_usage,
+                billing_date=datetime.now(),
+                total_tenants=total_tenants,
+                amount_per_tenant=amount_per_tenant
+            )
+            db.session.add(water_bill)
+    
+    db.session.commit()
+    flash('Readings uploaded successfully')
     return redirect(url_for('tenant_dashboard'))
 
 @app.route('/create_payment', methods=['POST'])
@@ -492,7 +515,7 @@ def create_payment():
         except Exception as e:
             return jsonify({'error': str(e)}), 400
     else:
-        # For cash and bank transfer
+        # For cash and UPI payments
         reference = f"RENT{datetime.now().strftime('%Y%m%d%H%M%S')}{current_user.id}"
         payment.transaction_reference = reference
         db.session.add(payment)

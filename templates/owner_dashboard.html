@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Owner Dashboard - Rent Manager{% endblock %}
+{% block title %}Owner Dashboard - DwellSync{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -43,11 +43,6 @@
                         <div class="mb-3">
                             <label for="initial_water_reading" class="form-label">Initial Water Meter Reading</label>
                             <input type="number" step="0.01" class="form-control" id="initial_water_reading" name="initial_water_reading" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="password" class="form-label">Password</label>
-                            <input type="password" class="form-control" id="password" name="password" required>
-                            <small class="text-muted">This will be used by the tenant to log in</small>
                         </div>
                         <button type="submit" class="btn btn-success">Register Tenant</button>
                     </form>
@@ -142,17 +137,14 @@
                                 {% if reading.previous_reading %}
                                     {{ reading.reading_value - reading.previous_reading.reading_value }}
                                 {% else %}
-                                    N/A
+                                    Initial Reading
                                 {% endif %}
                             </td>
                             <td>
-                                {% if reading.previous_reading %}
-                                    {% set total_tenants = tenants|length %}
-                                    {% set consumption = reading.reading_value - reading.previous_reading.reading_value %}
-                                    {% set share = consumption / (total_tenants + 1) %}
-                                    ₹{{ "%.2f"|format(share) }}
+                                {% if reading.previous_reading and current_rate %}
+                                    ₹{{ "%.2f"|format(((reading.reading_value - reading.previous_reading.reading_value)/(tenants|length + 1))*current_rate.rate_per_unit) }}
                                 {% else %}
-                                    N/A
+                                    -
                                 {% endif %}
                             </td>
                             <td>
@@ -207,7 +199,7 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if payment.payment_method in ['cash', 'bank_transfer'] %}
+                                {% if payment.payment_method in ['cash', 'upi'] %}
                                 <form action="{{ url_for('confirm_payment', payment_id=payment.id) }}" 
                                       method="POST" style="display: inline;">
                                     <button type="submit" class="btn btn-success btn-sm">Confirm</button>
@@ -281,8 +273,10 @@
                                 {% endif %}
                             </td>
                             <td>
-                                {% if water_bill %}
-                                    ₹{{ "%.2f"|format(water_bill.amount_per_tenant) }}
+                                {% if tenant_readings[tenant.id]['water']['current'] and tenant_readings[tenant.id]['water']['previous'] and current_rate %}
+                                    {% set water_consumption = tenant_readings[tenant.id]['water']['current'].reading_value - tenant_readings[tenant.id]['water']['previous'].reading_value %}
+                                    {% set water_bill = (water_consumption/(tenants|length + 1))*current_rate.rate_per_unit %}
+                                    ₹{{ "%.2f"|format(water_bill) }}
                                 {% else %}
                                     ₹0.00
                                 {% endif %}
@@ -296,8 +290,10 @@
                                     {% set electricity_bill = consumption * current_rate.rate_per_unit %}
                                     {% set total_amount = total_amount + electricity_bill %}
                                 {% endif %}
-                                {% if water_bill %}
-                                    {% set total_amount = total_amount + water_bill.amount_per_tenant %}
+                                {% if tenant_readings[tenant.id]['water']['current'] and tenant_readings[tenant.id]['water']['previous'] and current_rate %}
+                                    {% set water_consumption = tenant_readings[tenant.id]['water']['current'].reading_value - tenant_readings[tenant.id]['water']['previous'].reading_value %}
+                                    {% set water_bill = (water_consumption/(tenants|length + 1))*current_rate.rate_per_unit %}
+                                    {% set total_amount = total_amount + water_bill %}
                                 {% endif %}
                                 ₹{{ "%.2f"|format(total_amount) }}
                             </td>

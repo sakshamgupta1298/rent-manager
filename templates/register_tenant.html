@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Register New Tenant - Rent Manager{% endblock %}
+{% block title %}Register New Tenant - DwellSync{% endblock %}
 
 {% block content %}
 <div class="container mt-4">
@@ -10,7 +10,7 @@
                 <div class="card-body">
                     <h3 class="card-title text-center mb-4">Register New Tenant</h3>
                     <div class="alert alert-info">
-                        <i class="fas fa-info-circle"></i> A secure password will be automatically generated for the tenant.
+                        <i class="fas fa-info-circle"></i> A secure password will be automatically generated for the tenant. The tenant ID and password will be displayed after successful registration.
                     </div>
                     <form action="{{ url_for('register_tenant') }}" method="post">
                         <div class="mb-3">
